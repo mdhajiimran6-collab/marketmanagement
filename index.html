@@ -1,0 +1,297 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<title>Business Management System</title>
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+
+<!-- Firebase -->
+<script src="https://www.gstatic.com/firebasejs/9.23.0/firebase-app-compat.js"></script>
+<script src="https://www.gstatic.com/firebasejs/9.23.0/firebase-auth-compat.js"></script>
+<script src="https://www.gstatic.com/firebasejs/9.23.0/firebase-database-compat.js"></script>
+
+<style>
+*{box-sizing:border-box;margin:0;padding:0;font-family:'Segoe UI',Arial;}
+body{background:linear-gradient(135deg,#0f2027,#203a43,#2c5364);color:#fff;min-height:100vh;}
+.hide{display:none;}
+
+/* Header */
+header{background:rgba(0,0,0,.45);backdrop-filter:blur(12px);padding:20px;text-align:center;}
+header h1{font-size:26px;margin-bottom:6px;}
+#userInfo{font-size:14px;opacity:.9;}
+
+/* Nav */
+nav{margin-top:15px;display:flex;justify-content:center;gap:10px;flex-wrap:wrap;}
+nav button{padding:10px 18px;border:none;border-radius:25px;background:rgba(255,255,255,.2);color:#fff;cursor:pointer;font-weight:600;}
+nav button:hover{background:#00e5ff;color:#000;}
+#homeBtn{background:#2ecc71;color:#000;}
+
+/* Card */
+.card{background:rgba(255,255,255,.12);backdrop-filter:blur(14px);border-radius:18px;padding:20px;margin:20px;box-shadow:0 10px 30px rgba(0,0,0,.4);}
+
+/* Inputs */
+input, select{width:100%;padding:10px;margin:8px 0;border:none;border-radius:10px;outline:none;}
+input:focus, select:focus{box-shadow:0 0 0 2px #00e5ff;}
+
+/* Buttons */
+.btn{padding:10px 16px;border:none;border-radius:10px;background:#00e5ff;color:#000;font-weight:600;cursor:pointer;}
+.btn.red{background:#e74c3c;color:#fff;}
+
+/* Grid */
+.grid{display:grid;grid-template-columns:repeat(auto-fit,minmax(150px,1fr));gap:15px;}
+.product{background:rgba(255,255,255,.15);border-radius:16px;padding:10px;text-align:center;}
+.product img{width:100%;height:100px;object-fit:cover;border-radius:12px;margin-bottom:8px;background:#000;}
+
+/* Footer */
+footer{text-align:center;padding:15px;background:rgba(0,0,0,.4);font-size:13px;margin-top:30px;opacity:.9;}
+</style>
+</head>
+<body>
+
+<!-- LOGIN -->
+<div id="loginPage" class="card" style="max-width:420px;margin:70px auto">
+  <h2>Shop Login</h2>
+  <input id="username" placeholder="Shop Owner Name">
+  <input id="email" placeholder="Email">
+  <input id="password" type="password" placeholder="Password">
+  <button class="btn" onclick="login()">Login</button>
+</div>
+
+<!-- DASHBOARD -->
+<div id="dashboard" class="hide">
+<header>
+  <h1>Business Management System</h1>
+  <div id="userInfo"></div>
+  <nav>
+    <button id="homeBtn" onclick="showSection('home')">Home</button>
+    <button onclick="showSection('addRecord')">Add Record</button>
+    <button onclick="showSection('products')">Products</button>
+    <button onclick="showSection('profit')">Profit</button>
+    <button onclick="logout()">Logout</button>
+  </nav>
+</header>
+
+<!-- HOME -->
+<div id="home" class="card">
+  <input placeholder="Search product..." oninput="searchHomeProducts(this.value)">
+  <div id="homeProducts" class="grid"></div>
+</div>
+
+<!-- ADD RECORD -->
+<div id="addRecord" class="card hide">
+  <h3>Add Sale Record</h3>
+  <select id="rName"><option value="">Select Product</option></select>
+  <input id="rQty" type="number" placeholder="Quantity">
+  <input id="rBuy" type="number" placeholder="Buy Price" readonly>
+  <input id="rSell" type="number" placeholder="Sell Price">
+  <button class="btn" onclick="addRecord()">Save Record</button>
+</div>
+
+<!-- PRODUCTS -->
+<div id="products" class="card hide">
+  <h3>Add Product</h3>
+  <input id="pName" placeholder="Product Name">
+  <input id="pPrice" type="number" placeholder="Buy Price">
+  <input id="pImg" placeholder="Image URL">
+  <button class="btn" onclick="addProduct()">Add Product</button>
+  <hr style="margin:15px 0">
+  <div id="productList" class="grid"></div>
+</div>
+
+<!-- PROFIT -->
+<div id="profit" class="card hide">
+  <h3>Total Profit</h3>
+  <div id="profitBill"></div>
+</div>
+
+<footer>© 2025 Business Management System | mdhajiimran  || 7416102831</footer>
+</div>
+
+<script>
+// Firebase Config
+firebase.initializeApp({
+  apiKey: "AIzaSyChklVMDQPd0CM-UjsFAgq-vqq7IXsA1Hg",
+  authDomain: "collrction-of-data.firebaseapp.com",
+  databaseURL: "https://collrction-of-data-default-rtdb.firebaseio.com",
+  projectId: "collrction-of-data",
+  storageBucket: "collrction-of-data.firebasestorage.app",
+  messagingSenderId: "49205807314",
+  appId: "1:49205807314:web:48f09cc9bf1b5fea84450b",
+  measurementId: "G-EFTD379JSJ"
+});
+
+const auth = firebase.auth();
+const db = firebase.database();
+
+/* LOGIN */
+function login(){
+  if(!email.value || !password.value) return alert("Enter login details");
+  auth.signInWithEmailAndPassword(email.value,password.value)
+  .then(res=>{
+    const uid=res.user.uid;
+    db.ref("users/"+uid+"/profile").once("value",s=>{
+      if(!s.exists()){
+        db.ref("users/"+uid+"/profile").set({
+          name:username.value || "Shop Owner",
+          email:email.value
+        });
+      }
+    });
+    openDashboard();
+  }).catch(e=>alert(e.message));
+}
+
+/* DASHBOARD */
+function openDashboard(){
+  loginPage.classList.add("hide");
+  dashboard.classList.remove("hide");
+  loadUser();
+  loadProducts();
+  loadRecords();
+  loadProductDropdown();
+  showSection('home');
+}
+
+/* USER INFO */
+function loadUser(){
+  const u=auth.currentUser;
+  db.ref("users/"+u.uid+"/profile").once("value",s=>{
+    userInfo.innerHTML=`Welcome <b>${s.val().name}</b><br>ID: ${u.uid}`;
+  });
+}
+
+/* NAV */
+function showSection(id){
+  ['home','addRecord','products','profit'].forEach(x=>document.getElementById(x).classList.add('hide'));
+  document.getElementById(id).classList.remove('hide');
+}
+
+/* PRODUCTS */
+function addProduct(){
+  if(!pName.value || !pPrice.value) return alert("Fill product name & price");
+  db.ref("products/"+auth.currentUser.uid).push({
+    name:pName.value,
+    price:Number(pPrice.value),
+    img:pImg.value || "https://via.placeholder.com/150"
+  });
+  pName.value=pPrice.value=pImg.value="";
+  loadProducts();
+  loadProductDropdown();
+}
+
+function loadProducts(){
+  const uid = auth.currentUser.uid;
+  db.ref("products/"+uid).on("value", snap=>{
+    productList.innerHTML=homeProducts.innerHTML="";
+    snap.forEach(p=>{
+      const d=p.val();
+      const card = `<div class="product">
+        <img src="${d.img}" onerror="this.src='https://via.placeholder.com/150?text=No+Image'">
+        <b>${d.name}</b><br>₹${d.price}
+        <br><button class="btn red" onclick="deleteProduct('${p.key}')">Delete</button>
+      </div>`;
+      productList.innerHTML += card;
+      homeProducts.innerHTML += card;
+    });
+  });
+}
+
+function deleteProduct(key){
+  if(confirm("Delete this product?")) db.ref("products/"+auth.currentUser.uid+"/"+key).remove();
+  loadProductDropdown();
+}
+
+/* PRODUCT DROPDOWN */
+function loadProductDropdown(){
+  const uid = auth.currentUser.uid;
+  db.ref("products/"+uid).once("value", snap=>{
+    const select = rName;
+    select.innerHTML = "<option value=''>Select Product</option>";
+    snap.forEach(p=>{
+      const d = p.val();
+      select.innerHTML += `<option value='${p.key}' data-buy='${d.price}'>${d.name}</option>`;
+    });
+  });
+}
+
+rName.addEventListener("change", ()=>{
+  const selected = rName.options[rName.selectedIndex];
+  rBuy.value = selected.getAttribute("data-buy") || "";
+});
+
+/* ADD RECORD */
+function addRecord(){
+  const productKey = rName.value;
+  const qty = Number(rQty.value);
+  const buyPrice = Number(rBuy.value);
+  const sellPrice = Number(rSell.value);
+  if(!productKey || !qty || !buyPrice || !sellPrice) return alert("Fill all fields correctly");
+
+  const uid = auth.currentUser.uid;
+  db.ref("products/"+uid+"/"+productKey).once("value", pSnap=>{
+    const productName = pSnap.val().name;
+    const profit = (sellPrice - buyPrice) * qty;
+    db.ref("records/"+uid).push({
+      name: productName,
+      qty: qty,
+      buy: buyPrice,
+      sell: sellPrice,
+      profit: profit
+    });
+    rQty.value = rSell.value = rBuy.value = "";
+    loadRecords();
+    loadProfit();
+  });
+}
+
+/* LOAD RECORDS */
+function loadRecords(){
+  loadProfit();
+}
+
+/* PROFIT */
+function loadProfit(){
+  const uid = auth.currentUser.uid;
+  db.ref("records/"+uid).once("value", snap=>{
+    let html = "<table style='width:100%;border-collapse:collapse;text-align:center'><tr><th>Product</th><th>Qty</th><th>Buy</th><th>Sell</th><th>Profit</th><th>Action</th></tr>";
+    let totalProfit=0;
+    snap.forEach(s=>{
+      const d = s.val();
+      totalProfit += Number(d.profit);
+      html += `<tr>
+        <td>${d.name}</td>
+        <td>${d.qty}</td>
+        <td>₹${d.buy}</td>
+        <td>₹${d.sell}</td>
+        <td>₹${d.profit}</td>
+        <td><button class="btn red" onclick="deleteRecord('${s.key}')">Delete</button></td>
+      </tr>`;
+    });
+    html += `</table><h3>Total Profit: ₹${totalProfit}</h3>`;
+    profitBill.innerHTML = html;
+  });
+}
+
+/* DELETE RECORD */
+function deleteRecord(key){
+  if(confirm("Delete this record?")) db.ref("records/"+auth.currentUser.uid+"/"+key).remove();
+  loadProfit();
+}
+
+/* SEARCH */
+function searchHomeProducts(value){
+  document.querySelectorAll("#homeProducts .product").forEach(p=>{
+    p.style.display = p.innerText.toLowerCase().includes(value.toLowerCase())?"block":"none";
+  });
+}
+
+/* LOGOUT */
+function logout(){
+  auth.signOut().then(()=>location.reload());
+}
+
+/* AUTO LOGIN */
+auth.onAuthStateChanged(u=>{if(u)openDashboard();});
+</script>
+</body>
+</html>
